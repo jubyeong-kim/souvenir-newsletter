@@ -1,0 +1,12 @@
+.env
+__pycache__/
+
+# store/ 에는 지표만 커밋한다. API 응답 원문 같은 걸 같이 남기면
+# 그것까지 저장소에 올라간다.
+store/*
+!store/.gitkeep
+!store/metrics.jsonl
+!store/seen.json
+
+# 인수인계 문서는 사업 내용이 들어 있어 제출물에 포함하지 않는다.
+HANDOFF.md

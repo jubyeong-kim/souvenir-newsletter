@@ -1,0 +1,58 @@
+name: 주간 브리핑
+
+on:
+  schedule:
+    # cron 은 UTC 기준. 0 0 * * * = 매일 09:00 KST.
+    - cron: "0 0 * * *"
+  workflow_dispatch:             # ② 손으로도 돌릴 수 있게
+    inputs:
+      dry_run:
+        description: "발행하지 않고 로그만 남기기"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write               # 기록을 저장소에 되커밋하려면 필요하다
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20          # ③ 멈춰 있는 실행을 20분에서 끊는다
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 브리핑 생성·발행
+        run: python run.py ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:                     # ④ 비밀값은 여기로만 들어간다
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TAVILY_API_KEY:      ${{ secrets.TAVILY_API_KEY }}
+          YOUTUBE_API_KEY:     ${{ secrets.YOUTUBE_API_KEY }}
+          # graph.py 의 기본값이 "1"(보내지 않음)이라, 여기서 "0"을 주지 않으면
+          # 스케줄 실행이 매일 조용히 dry-run 으로 끝난다. 워크플로는 success 로 찍힌다.
+          DRY_RUN:             ${{ inputs.dry_run && '1' || '0' }}
+          TZ: Asia/Seoul
+
+      - name: 실행 기록 보관    # ⑤ 로그 말고 파일로 남은 것도 챙긴다
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-${{ github.run_number }}
+          path: store/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: 기록 커밋        # ⑥ artifact 는 회차별로 따로 논다. 누적하려면 되커밋해야 한다
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name  "newsroom-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add store/
+          git diff --cached --quiet || (git commit -m "metrics: $(date +%F)" && git push)

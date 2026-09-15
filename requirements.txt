@@ -1,0 +1,8 @@
+feedparser
+requests
+trafilatura
+openai
+langgraph
+pydantic
+python-dotenv
+pyyaml
